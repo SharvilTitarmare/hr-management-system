@@ -1,0 +1,251 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  Admin
+  Employee
+}
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  password     String
+  name         String?
+  role         UserRole       @default(Employee)
+  employeeId   String?        @unique
+  employee     Employee?      @relation(fields: [employeeId], references: [id])
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model Employee {
+  id                 String              @id @default(uuid())
+  employee_id        String              @unique
+  first_name         String
+  last_name          String
+  email              String              @unique
+  phone              String
+  position           String
+  department         String
+  manager            String
+  start_date         DateTime
+  status             EmployeeStatus
+  basic_salary       Float
+  created_at         DateTime            @default(now())
+  updated_at         DateTime            @updatedAt
+  leaveRequests      LeaveRequest[]
+  performanceReviews PerformanceReview[] @relation("EmployeeReviews")
+  reviewsGiven       PerformanceReview[] @relation("ReviewerReviews")
+  trainingEnrollments TrainingEnrollment[]
+  user               User?
+}
+
+model LeaveRequest {
+  id          String      @id @default(uuid())
+  employee_id String
+  leave_type  String
+  start_date  DateTime
+  end_date    DateTime
+  days        Int
+  reason      String
+  status      LeaveStatus @default(Pending)
+  reliever    String
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+  employee    Employee    @relation(fields: [employee_id], references: [id])
+}
+
+model JobPosting {
+  id                   String      @id @default(uuid())
+  title                String
+  department           String
+  location             JobLocation
+  type                 JobType
+  status               JobStatus   @default(Draft)
+  level                JobLevel
+  posted               DateTime    @default(now())
+  salaryMin            Int
+  salaryMax            Int
+  currency             String      @default("USD")
+  description          String?
+  requirements         String[]
+  benefits             String[]
+  responsibilities     String[]
+  applicationDeadline  DateTime
+  contactEmail         String
+  created_at           DateTime    @default(now())
+  updated_at           DateTime    @updatedAt
+
+  applications         Application[]
+}
+
+model Application {
+  id          String      @id @default(uuid())
+  jobId       String
+  applicantId String
+  status      String      @default("pending")
+  appliedAt   DateTime    @default(now())
+
+  job         JobPosting  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+model PerformanceReview {
+  id               String       @id @default(uuid())
+  employee_id      String
+  reviewer_id      String
+  review_period    String
+  review_type      String
+  overall_rating   Int
+  goals            String
+  achievements     String
+  development_plan String
+  status           ReviewStatus
+  created_at       DateTime     @default(now())
+  updated_at       DateTime     @updatedAt
+  employee         Employee     @relation("EmployeeReviews", fields: [employee_id], references: [id])
+  reviewer         Employee     @relation("ReviewerReviews", fields: [reviewer_id], references: [id])
+}
+
+model TrainingProgram {
+  id                  String              @id @default(uuid())
+  title               String
+  description         String
+  category            String
+  duration_hours      Int
+  max_participants    Int
+  budget_allocated    Float
+  trainer_name        String?
+  trainer_email       String?
+  is_external         Boolean             @default(false)
+  status              TrainingStatus      @default(Draft)
+  created_at          DateTime            @default(now())
+  updated_at          DateTime            @updatedAt
+
+  sessions            TrainingSession[]
+  enrollments         TrainingEnrollment[]
+}
+
+model TrainingSession {
+  id                  String              @id @default(uuid())
+  program_id          String
+  title               String
+  start_date          DateTime
+  end_date            DateTime
+  location            String
+  max_participants    Int
+  cost_per_participant Float
+  status              SessionStatus       @default(Scheduled)
+  created_at          DateTime            @default(now())
+  updated_at          DateTime            @updatedAt
+
+  program             TrainingProgram     @relation(fields: [program_id], references: [id], onDelete: Cascade)
+  enrollments         TrainingEnrollment[]
+}
+
+model TrainingEnrollment {
+  id                  String              @id @default(uuid())
+  employee_id         String
+  program_id          String
+  session_id          String?
+  enrollment_date     DateTime            @default(now())
+  status              EnrollmentStatus    @default(Enrolled)
+  completion_date     DateTime?
+  certificate_issued  Boolean             @default(false)
+  feedback_rating     Int?
+  feedback_comments   String?
+  created_at          DateTime            @default(now())
+  updated_at          DateTime            @updatedAt
+
+  employee            Employee            @relation(fields: [employee_id], references: [id])
+  program             TrainingProgram     @relation(fields: [program_id], references: [id])
+  session             TrainingSession?    @relation(fields: [session_id], references: [id])
+
+  @@unique([employee_id, program_id, session_id])
+}
+
+enum EmployeeStatus {
+  Active
+  On_Leave
+  Inactive
+}
+
+enum LeaveStatus {
+  Pending
+  Approved
+  Rejected
+}
+
+enum JobStatus {
+  Active
+  Closed
+  Draft
+}
+
+enum JobType {
+  FullTime    @map("Full-time")
+  PartTime    @map("Part-time")
+  Contract
+  Internship
+}
+
+enum JobLevel {
+  Entry
+  Mid
+  Senior
+  Lead
+  Executive
+}
+
+enum JobLocation {
+  Remote
+  Office
+  Hybrid
+}
+
+enum ReviewStatus {
+  Draft
+  In_Progress
+  Completed
+}
+
+enum TrainingStatus {
+  Draft
+  Active
+  Completed
+  Cancelled
+}
+
+enum SessionStatus {
+  Scheduled
+  In_Progress
+  Completed
+  Cancelled
+}
+
+enum EnrollmentStatus {
+  Enrolled
+  In_Progress
+  Completed
+  Dropped
+  No_Show
+}
