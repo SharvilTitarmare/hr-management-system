@@ -3,7 +3,7 @@ import { prisma } from "@/lib/api"
 import { getAuthUser } from "@/lib/server/auth"
 
 interface RouteParams {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 // PATCH /api/leave/[id]  { status: "Approved" | "Rejected" }
@@ -18,13 +18,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Only admins can approve or reject leave" }, { status: 403 })
     }
 
+    const { id } = await params
     const { status } = await request.json()
     if (status !== "Approved" && status !== "Rejected") {
       return NextResponse.json({ error: "Status must be Approved or Rejected" }, { status: 400 })
     }
 
     const leaveRequest = await prisma.leaveRequest.update({
-      where: { id: params.id },
+      where: { id },
       data: { status },
       include: {
         employee: {
@@ -50,7 +51,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    const existing = await prisma.leaveRequest.findUnique({ where: { id: params.id } })
+    const { id } = await params
+    const existing = await prisma.leaveRequest.findUnique({ where: { id } })
     if (!existing) {
       return NextResponse.json({ error: "Leave request not found" }, { status: 404 })
     }
@@ -63,7 +65,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Only pending requests can be cancelled" }, { status: 400 })
     }
 
-    await prisma.leaveRequest.delete({ where: { id: params.id } })
+    await prisma.leaveRequest.delete({ where: { id } })
     return NextResponse.json({ message: "Leave request cancelled" })
   } catch (err) {
     console.error("Error cancelling leave request:", err)

@@ -3,7 +3,7 @@ import { prisma } from '@/lib/api'
 import { getAuthUser } from '@/lib/server/auth'
 
 interface RouteParams {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 export async function GET(
@@ -16,8 +16,9 @@ export async function GET(
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
+    const { id } = await params
     const employee = await prisma.employee.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         leaveRequests: {
           orderBy: { created_at: 'desc' },
@@ -60,9 +61,10 @@ export async function PUT(
       return NextResponse.json({ error: 'Only admins can edit employees' }, { status: 403 })
     }
 
+    const { id } = await params
     const body = await request.json()
     const employee = await prisma.employee.update({
-      where: { id: params.id },
+      where: { id },
       data: body
     })
 
@@ -89,8 +91,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Only admins can remove employees' }, { status: 403 })
     }
 
+    const { id } = await params
     await prisma.employee.delete({
-      where: { id: params.id }
+      where: { id }
     })
 
     return NextResponse.json({ message: 'Employee deleted' })
